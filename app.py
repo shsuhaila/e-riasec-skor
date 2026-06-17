@@ -1,5 +1,8 @@
 import streamlit as st
 import pandas as pd
+import csv
+import io
+import os
 
 st.set_page_config(
     page_title="E-RIASEC SKOR",
@@ -8,50 +11,210 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Custom Colorful CSS Styling
+st.markdown("""
+    <style>
+        /* Global Background styling */
+        .main {
+            background-color: #f8fafc;
+        }
+        
+        /* Custom styled tabs */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 12px;
+            background-color: #f1f5f9;
+            padding: 8px 12px;
+            border-radius: 12px;
+        }
+        .stTabs [data-baseweb="tab"] {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            color: #475569;
+            background-color: transparent;
+            transition: all 0.3s ease;
+        }
+        .stTabs [data-baseweb="tab"]:hover {
+            color: #1e3a8a;
+            background-color: #e2e8f0;
+        }
+        .stTabs [aria-selected="true"] {
+            background-color: #ffffff !important;
+            color: #1e3a8a !important;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        /* Hover effects for custom HTML cards */
+        .riasec-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .riasec-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05) !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 riasec_details = {
     'R': {
         'name': 'Realistik',
         'trait': 'Praktikal & Fizikal',
         'desc': 'Gemar tugasan fizikal, menggunakan instrumen, membaiki alatan mekanikal atau mesin. Lebih gemar kerja praktikal di luar pejabat.',
         'careers': 'Jurutera, Mekanik, Ahli Pertanian, Juruteknik',
-        'color': 'red'
+        'color': '#EF4444',      # Red
+        'bg_color': '#FEF2F2',   # Soft Red
+        'border_color': '#FCA5A5'
     },
     'I': {
         'name': 'Investigatif',
         'trait': 'Saintifik & Saintis',
         'desc': 'Gemar tugasan berfikir, membuat penyelidikan, menganalisis masalah yang kompleks, gemar membaca topik teknikal serta bidang perubatan.',
         'careers': 'Doktor, Ahli Kimia, Penganalisis Data, Penyelidik',
-        'color': 'blue'
+        'color': '#3B82F6',      # Blue
+        'bg_color': '#EFF6FF',   # Soft Blue
+        'border_color': '#93C5FD'
     },
     'A': {
         'name': 'Artistik',
         'trait': 'Kreatif & Bebas',
         'desc': 'Menghargai kebebasan berekspresi, kreatif, artistik, suka melukis, muzik, penulisan kreatif atau rekaan grafik.',
         'careers': 'Pereka Grafik, Arkitek, Penulis, Pemuzik, Pelakon',
-        'color': 'purple'
+        'color': '#8B5CF6',      # Purple
+        'bg_color': '#F5F3FF',   # Soft Purple
+        'border_color': '#C7D2FE'
     },
     'S': {
         'name': 'Sosial',
         'trait': 'Membantu & Prihatin',
         'desc': 'Prihatin kebajikan orang ramai, gemar mengajar, merawat pesakit, memberi kaunseling serta selesa berinteraksi dalam kumpulan.',
         'careers': 'Guru, Kaunselor, Pegawai HR, Jururawat, Pekerja Sosial',
-        'color': 'green'
+        'color': '#10B981',      # Emerald Green
+        'bg_color': '#ECFDF5',   # Soft Green
+        'border_color': '#6EE7B7'
     },
     'E': {
         'name': 'Enterprising',
         'trait': 'Berdaya Usaha & Pemimpin',
         'desc': 'Sifat kepimpinan kuat, berbakat memujuk, mengurus projek perniagaan, bercita-cita tinggi, mahir berucap di hadapan umum.',
         'careers': 'Usahawan, Pengarah Syarikat, Pengurus Jualan, Peguam',
-        'color': 'orange'
+        'color': '#F59E0B',      # Amber Orange
+        'bg_color': '#FFFBEB',   # Soft Amber
+        'border_color': '#FCD34D'
     },
     'K': {
         'name': 'Konvensional',
         'trait': 'Sistematik & Berstruktur',
         'desc': 'Tersusun, mementingkan kekemasan, teratur dalam menguruskan data, rekod, tugasan perkeranian atau perakaunan.',
         'careers': 'Akauntan, Pentadbir Fail, Setiausaha, Penganalisis Kewangan',
-        'color': 'green'
+        'color': '#06B6D4',      # Cyan
+        'bg_color': '#ECFEFF',   # Soft Cyan
+        'border_color': '#67E8F9'
     }
 }
+
+# Helper to map class to nice color badges
+class_badges = {
+    "5 Sidiq": {"bg": "#E0F2FE", "txt": "#0369A1", "border": "#7DD3FC", "emoji": "🔵"},
+    "5 Amanah": {"bg": "#D1FAE5", "txt": "#065F46", "border": "#6EE7B7", "emoji": "🟢"},
+    "5 Tabligh": {"bg": "#FEF3C7", "txt": "#92400E", "border": "#FCD34D", "emoji": "🟡"}
+}
+
+def parse_psychometric_csv(file_path_or_buffer, class_name):
+    students_list = []
+    content = ""
+    
+    if isinstance(file_path_or_buffer, str):
+        if not os.path.exists(file_path_or_buffer):
+            return []
+        try:
+            with open(file_path_or_buffer, 'r', encoding='utf-8-sig', errors='ignore') as f:
+                content = f.read()
+        except Exception:
+            return []
+    else:
+        try:
+            content = file_path_or_buffer.getvalue().decode('utf-8-sig', errors='ignore')
+        except Exception:
+            return []
+
+    lines = content.splitlines()
+    for line in lines:
+        reader = csv.reader([line])
+        row = next(reader, None)
+        if not row or len(row) < 5:
+            continue
+            
+        scores = {}
+        name = None
+        
+        for item in row:
+            item_strip = item.strip()
+            if '|' in item_strip:
+                parts = item_strip.split('|')
+                if len(parts) == 2:
+                    key = parts[0].strip().upper()
+                    val_str = parts[1].strip()
+                    if key in ['R', 'I', 'A', 'S', 'E', 'K']:
+                        try:
+                            scores[key] = int(val_str)
+                        except ValueError:
+                            pass
+                            
+        if len(scores) >= 6:
+            cand_name = row[1].strip().upper() if len(row) > 1 else ""
+            if cand_name and not cand_name.isdigit() and len(cand_name) > 3:
+                name = cand_name
+            else:
+                for val in row:
+                    val_clean = val.strip().upper()
+                    if val_clean and len(val_clean) > 3 and not any(char.isdigit() for char in val_clean) and '|' not in val_clean:
+                        name = val_clean
+                        break
+            
+            if name:
+                students_list.append({
+                    "id": f"{class_name.lower().replace(' ', '_')}_{len(students_list)+1}_{name[:5]}",
+                    "name": name,
+                    "class": class_name,
+                    "R": scores.get('R', 0),
+                    "I": scores.get('I', 0),
+                    "A": scores.get('A', 0),
+                    "S": scores.get('S', 0),
+                    "E": scores.get('E', 0),
+                    "K": scores.get('K', 0)
+                })
+                
+    if not students_list:
+        try:
+            df_temp = pd.read_csv(io.StringIO(content))
+            df_temp.columns = [c.strip().upper() for c in df_temp.columns]
+            
+            name_col = None
+            for col in df_temp.columns:
+                if 'NAMA' in col or 'NAME' in col:
+                    name_col = col
+                    break
+            if not name_col and len(df_temp.columns) > 0:
+                name_col = df_temp.columns[0]
+                
+            required_cols = ['R', 'I', 'A', 'S', 'E', 'K']
+            if name_col and all(rc in df_temp.columns for rc in required_cols):
+                for idx, r in df_temp.iterrows():
+                    students_list.append({
+                        "id": f"{class_name.lower().replace(' ', '_')}_{len(students_list)+1}",
+                        "name": str(r[name_col]).strip().upper(),
+                        "class": class_name,
+                        "R": int(r['R']),
+                        "I": int(r['I']),
+                        "A": int(r['A']),
+                        "S": int(r['S']),
+                        "E": int(r['E']),
+                        "K": int(r['K'])
+                    })
+        except Exception:
+            pass
+            
+    return students_list
 
 default_students = [
     { "id": "1", "name": "ANAS BIN HAIRUL AZHAR", "class": "5 Sidiq", "R": 15, "I": 19, "A": 16, "S": 15, "E": 22, "K": 14 },
@@ -79,7 +242,20 @@ default_students = [
 ]
 
 if 'students_db' not in st.session_state:
-    st.session_state.students_db = pd.DataFrame(default_students)
+    initial_df = pd.DataFrame(default_students)
+    st.session_state.students_db = initial_df
+    
+    # Auto-load Amanah jika fail berada dalam folder kerja
+    amanah_file_name = "senarai-murid-psikometrik-AMANAH-INVENTORI-MINAT-KERJAYA-TINGKATAN-5-2026.csv"
+    amanah_data = parse_psychometric_csv(amanah_file_name, "5 Amanah")
+    if amanah_data:
+        st.session_state.students_db = pd.concat([st.session_state.students_db, pd.DataFrame(amanah_data)], ignore_index=True)
+        
+    # Auto-load Tabligh jika fail berada dalam folder kerja
+    tabligh_file_name = "senarai-murid-psikometrik-TABLIGH-INVENTORI-MINAT-KERJAYA-TINGKATAN-5-2026.csv"
+    tabligh_data = parse_psychometric_csv(tabligh_file_name, "5 Tabligh")
+    if tabligh_data:
+        st.session_state.students_db = pd.concat([st.session_state.students_db, pd.DataFrame(tabligh_data)], ignore_index=True)
 
 def get_riasec_code(row):
     scores = {'R': row['R'], 'I': row['I'], 'A': row['A'], 'S': row['S'], 'E': row['E'], 'K': row['K']}
@@ -89,74 +265,87 @@ def get_riasec_code(row):
 df = st.session_state.students_db.copy()
 df['Kod'] = df.apply(get_riasec_code, axis=1)
 
-st.markdown("<h1 style='text-align: center; color: #1E3A8A;'>🎓 E-RIASEC SKOR</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; font-size: 1.1em; color: #4B5563;'>Sistem Carian & Analisis Kod Kerjaya Murid (5 Sidiq, 5 Amanah, 5 Tabligh)</p>", unsafe_allow_html=True)
-st.write("---")
+# Header Utama (More Colorful Banner)
+st.markdown("""
+    <div style="background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #06b6d4 100%); padding: 30px; border-radius: 20px; text-align: center; margin-bottom: 25px; box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.3);">
+        <h1 style="color: white; margin: 0; font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 2.8em; letter-spacing: 1px;">🎯 E-RIASEC SKOR</h1>
+        <p style="color: #e0f2fe; margin-top: 10px; font-size: 1.2em; font-weight: 300;">Sistem Pengurusan & Analisis Interaktif Ujian Psikometrik Minat Kerjaya</p>
+    </div>
+""", unsafe_allow_html=True)
 
 tab_carian, tab_statistik, tab_urus = st.tabs([
     "🔍 Carian Individu", 
-    "📊 Statistik Kelas", 
-    "⚙️ Urus Database"
+    "📊 Statistik & Taburan Kelas", 
+    "⚙️ Urus Database & Muat Naik CSV"
 ])
 
+# ==================== TAB 1: CARIAN INDIVIDU ====================
 with tab_carian:
-    st.subheader("Carian Profil Kerjaya Murid")
+    st.markdown("<h3 style='color: #1e3a8a;'>Carian Profil Kerjaya Murid</h3>", unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
     with col1:
-        selected_class = st.selectbox("Pilih Kelas", ["5 Sidiq", "5 Amanah", "5 Tabligh"], key="search_class")
+        selected_class = st.selectbox("📁 Pilih Kelas", ["5 Sidiq", "5 Amanah", "5 Tabligh"], key="search_class")
     
     class_df = df[df['class'] == selected_class].sort_values(by="name")
     
     with col2:
         if not class_df.empty:
-            selected_student_name = st.selectbox("Nama Murid", class_df['name'].tolist(), key="search_student")
+            selected_student_name = st.selectbox("👤 Pilih Nama Murid", class_df['name'].tolist(), key="search_student")
         else:
-            st.selectbox("Nama Murid", ["-- Tiada Murid Berdaftar --"], disabled=True)
+            st.selectbox("👤 Pilih Nama Murid", ["-- Tiada Murid Berdaftar --"], disabled=True)
             selected_student_name = None
             
     if selected_student_name and selected_student_name != "-- Tiada Murid Berdaftar --":
         student_data = class_df[class_df['name'] == selected_student_name].iloc[0]
         code = student_data['Kod']
+        badge_style = class_badges.get(selected_class, {"bg": "#E2E8F0", "txt": "#475569", "border": "#CBD5E1", "emoji": "📁"})
         
+        # Colorful Profil Banner
         st.markdown(
             f"""
-            <div style="background: linear-gradient(135deg, #1e293b, #0f172a); padding: 25px; border-radius: 15px; color: white; margin-bottom: 25px;">
-                <span style="background-color: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.4); padding: 4px 12px; border-radius: 20px; font-size: 0.8em; font-weight: bold; color: #93c5fd;">
-                    📍 {student_data['class']}
-                </span>
-                <h2 style="margin: 10px 0 5px 0; color: white;">{student_data['name']}</h2>
-                <p style="color: #cbd5e1; margin: 0; font-size: 0.9em;">Keputusan Profil Ujian Minat Kerjaya RIASEC</p>
-                <div style="margin-top: 15px; background: rgba(255, 255, 255, 0.1); display: inline-block; padding: 10px 25px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.2);">
-                    <span style="font-size: 0.8em; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; display: block;">KOD TIGA HURUF UTAMA</span>
-                    <strong style="font-size: 2.2em; color: #fde047; font-family: sans-serif;">{code}</strong>
+            <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 30px; border-radius: 18px; color: white; margin-bottom: 25px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+                    <div>
+                        <span style="background-color: {badge_style['bg']}; border: 1px solid {badge_style['border']}; color: {badge_style['txt']}; padding: 6px 16px; border-radius: 30px; font-size: 0.85em; font-weight: bold;">
+                            {badge_style['emoji']} {student_data['class']}
+                        </span>
+                        <h2 style="margin: 15px 0 5px 0; color: white; font-size: 2.2em; font-family: sans-serif;">{student_data['name']}</h2>
+                        <p style="color: #94a3b8; margin: 0; font-size: 1.0em;">Laporan Inventori Minat Kerjaya (Tiga Mata Holland)</p>
+                    </div>
+                    <div style="background: rgba(255, 255, 255, 0.08); padding: 15px 30px; border-radius: 15px; border: 1px solid rgba(255, 255, 255, 0.15); text-align: center; min-width: 180px;">
+                        <span style="font-size: 0.75em; text-transform: uppercase; letter-spacing: 1.5px; color: #cbd5e1; display: block; margin-bottom: 5px;">KOD KERJAYA</span>
+                        <strong style="font-size: 2.6em; color: #fde047; font-family: sans-serif; letter-spacing: 2px;">{code}</strong>
+                    </div>
                 </div>
             </div>
             """,
             unsafe_allow_html=True
         )
         
-        st.write("### 🔍 Huraian Personaliti Kod Kerjaya:")
+        st.markdown("<h4 style='color: #1e3a8a;'>🎨 Huraian Personaliti Kod Tiga Huruf Utama:</h4>", unsafe_allow_html=True)
         cols_cards = st.columns(3)
         for idx, char in enumerate(code):
             detail = riasec_details[char]
             with cols_cards[idx]:
                 st.markdown(
                     f"""
-                    <div style="background-color: white; border: 1px solid #e2e8f0; padding: 20px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); height: 100%;">
-                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                            <span style="background-color: #3b82f6; color: white; width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.1em;">
-                                {char}
-                            </span>
-                            <div>
-                                <h4 style="margin: 0; color: #1e293b;">{detail['name']}</h4>
-                                <small style="color: #64748b; font-weight: bold; text-transform: uppercase; font-size: 0.75em;">{detail['trait']}</small>
+                    <div class="riasec-card" style="background-color: {detail['bg_color']}; border: 2px solid {detail['border_color']}; padding: 25px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); height: 100%; display: flex; flex-direction: column; justify-content: space-between;">
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 15px;">
+                                <span style="background-color: {detail['color']}; color: white; width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.4em; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                                    {char}
+                                </span>
+                                <div>
+                                    <h4 style="margin: 0; color: #1e293b; font-size: 1.25em; font-weight: bold;">{detail['name']}</h4>
+                                    <small style="color: {detail['color']}; font-weight: bold; text-transform: uppercase; font-size: 0.8em; letter-spacing: 0.5px;">{detail['trait']}</small>
+                                </div>
                             </div>
+                            <p style="font-size: 0.9em; color: #475569; line-height: 1.6; margin-bottom: 20px;">{detail['desc']}</p>
                         </div>
-                        <p style="font-size: 0.85em; color: #475569; line-height: 1.5; margin-bottom: 15px;">{detail['desc']}</p>
-                        <div style="background-color: #f8fafc; padding: 10px; border-radius: 8px; border: 1px dashed #cbd5e1;">
-                            <span style="font-size: 0.75em; color: #94a3b8; font-weight: bold; display: block; margin-bottom: 2px;">CADANGAN KERJAYA:</span>
-                            <span style="font-size: 0.85em; color: #2563eb; font-weight: bold;">{detail['careers']}</span>
+                        <div style="background-color: white; padding: 12px; border-radius: 10px; border: 1px dashed {detail['border_color']};">
+                            <span style="font-size: 0.75em; color: #64748b; font-weight: bold; display: block; margin-bottom: 4px;">CADANGAN KERJAYA:</span>
+                            <span style="font-size: 0.9em; color: #1e3a8a; font-weight: bold;">{detail['careers']}</span>
                         </div>
                     </div>
                     """,
@@ -164,7 +353,7 @@ with tab_carian:
                 )
         
         st.write("---")
-        st.write("### 📈 Markah Penuh Mengikut Tret")
+        st.markdown("<h4 style='color: #1e3a8a;'>📈 Analisis Markah Penuh Mengikut Tret</h4>", unsafe_allow_html=True)
         
         col_pb1, col_pb2 = st.columns(2)
         traits = [('R', 'Realistik'), ('I', 'Investigatif'), ('A', 'Artistik'), ('S', 'Sosial'), ('E', 'Enterprising'), ('K', 'Konvensional')]
@@ -172,23 +361,26 @@ with tab_carian:
         for index, (char, name) in enumerate(traits):
             score = int(student_data[char])
             percentage = score / 30.0
+            color = riasec_details[char]['color']
             
             target_col = col_pb1 if index < 3 else col_pb2
             with target_col:
                 st.write(f"**{char} - {name}** ({score}/30)")
+                # Color code progress bar utilizing standard streamlit, but wrapping with custom visual cue
                 st.progress(percentage)
                 
     else:
-        st.info("💡 Sila pilih kelas terlebih dahulu, kemudian klik pada nama murid untuk memulakan analisis.")
+        st.info("💡 Sila pilih kelas terlebih dahulu, kemudian klik pada nama murid untuk melihat profil visual yang menarik!")
 
+# ==================== TAB 2: STATISTIK KELAS ====================
 with tab_statistik:
-    st.subheader("Taburan Kecenderungan Kelas")
-    selected_analysis_class = st.selectbox("Pilih Kelas Untuk Analisis", ["5 Sidiq", "5 Amanah", "5 Tabligh"], key="analysis_class")
+    st.markdown("<h3 style='color: #1e3a8a;'>Analisis Taburan Tret Dominan Kelas</h3>", unsafe_allow_html=True)
+    selected_analysis_class = st.selectbox("📂 Pilih Kelas Untuk Analisis Statistik", ["5 Sidiq", "5 Amanah", "5 Tabligh"], key="analysis_class")
     
     analysis_df = df[df['class'] == selected_analysis_class]
     
     if analysis_df.empty:
-        st.warning(f"⚠️ Tiada data tersedia untuk kelas {selected_analysis_class}. Sila isi maklumat murid di tab 'Urus Database'.")
+        st.warning(f"⚠️ Tiada data tersedia untuk kelas {selected_analysis_class}. Sila muat naik fail CSV di tab sebelah dahulu!")
     else:
         analysis_df['Dominan'] = analysis_df['Kod'].str[0]
         freq = analysis_df['Dominan'].value_counts()
@@ -198,6 +390,19 @@ with tab_statistik:
                 freq[char] = 0
         
         freq = freq.reindex(['R', 'I', 'A', 'S', 'E', 'K'])
+        
+        # Color Legend for RIASEC Chart
+        st.markdown("""
+            <div style="display: flex; gap: 15px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap;">
+                <span style="background-color: #EF4444; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8em; font-weight: bold;">R - Realistik</span>
+                <span style="background-color: #3B82F6; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8em; font-weight: bold;">I - Investigatif</span>
+                <span style="background-color: #8B5CF6; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8em; font-weight: bold;">A - Artistik</span>
+                <span style="background-color: #10B981; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8em; font-weight: bold;">S - Sosial</span>
+                <span style="background-color: #F59E0B; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8em; font-weight: bold;">E - Enterprising</span>
+                <span style="background-color: #06B6D4; color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.8em; font-weight: bold;">K - Konvensional</span>
+            </div>
+        """, unsafe_allow_html=True)
+        
         col_chart, col_details = st.columns([3, 2])
         
         with col_chart:
@@ -209,20 +414,128 @@ with tab_statistik:
             st.bar_chart(data=chart_data, x='Kecenderungan', y='Jumlah Murid', color='#1E3A8A')
             
         with col_details:
-            st.write("**Leaderboard Kategori Kelas**")
+            st.write("**Kedudukan Kategori Kelas (Leaderboard)**")
             sorted_freq = freq.sort_values(ascending=False)
             
             for rank, (char, count) in enumerate(sorted_freq.items()):
-                pct = (count / len(analysis_df)) * 100
+                pct = (count / len(analysis_df)) * 100 if len(analysis_df) > 0 else 0
                 medal = "🏆" if rank == 0 else "🥈" if rank == 1 else "🥉" if rank == 2 else "•"
+                color = riasec_details[char]['color']
+                bg_color = riasec_details[char]['bg_color']
+                
                 st.markdown(
                     f"""
-                    <div style="display: flex; justify-content: space-between; background-color: #f8fafc; padding: 10px; margin-bottom: 8px; border-radius: 8px; border-left: 4px solid #1e3a8a;">
-                        <span style="font-weight: bold;">{medal} {char} - {riasec_details[char]['name']}</span>
-                        <span><b>{count} Murid</b> ({pct:.0f}%)</span>
+                    <div style="display: flex; justify-content: space-between; align-items: center; background-color: {bg_color}; padding: 12px; margin-bottom: 8px; border-radius: 10px; border-left: 5px solid {color}; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                        <span style="font-weight: bold; color: #1e293b;">{medal} {char} - {riasec_details[char]['name']}</span>
+                        <span style="background-color: white; border: 1px solid {color}; padding: 2px 10px; border-radius: 20px; font-size: 0.95em; font-weight: bold; color: {color};">
+                            {count} Murid ({pct:.0f}%)
+                        </span>
                     </div>
                     """,
                     unsafe_allow_html=True
                 )
             
-            dominant_char = sorted_freq
+            dominant_char = sorted_freq.index[0]
+            sec_dominant_char = sorted_freq.index[1]
+            st.success(f"💡 **Rumusan Profil Kelas:** Majoriti murid kelas {selected_analysis_class} mempunyai ciri **{riasec_details[dominant_char]['name']} ({dominant_char})** sebagai kecenderungan utama mereka, dan di tempat kedua adalah **{riasec_details[sec_dominant_char]['name']} ({sec_dominant_char})**!")
+
+# ==================== TAB 3: URUS DATABASE ====================
+with tab_urus:
+    st.markdown("<h3 style='color: #1e3a8a;'>Urus Database & Muat Naik CSV</h3>", unsafe_allow_html=True)
+    st.info("💡 **Muat Naik Mudah:** Anda boleh memuat naik fail CSV psikometrik yang dieksport terus daripada sistem SePKM sekolah anda tanpa sebarang perubahan format!")
+    
+    col_upload1, col_upload2 = st.columns(2)
+    
+    with col_upload1:
+        st.markdown("<div style='background-color: #ECFDF5; border: 1px solid #A7F3D0; padding: 20px; border-radius: 12px;'>", unsafe_allow_html=True)
+        st.markdown("#### 🟢 Muat Naik Kelas 5 Amanah")
+        amanah_upload = st.file_uploader("Pilih fail CSV untuk 5 Amanah", type=['csv'], key="upload_amanah")
+        if amanah_upload is not None:
+            parsed_amanah = parse_psychometric_csv(amanah_upload, "5 Amanah")
+            if parsed_amanah:
+                st.session_state.students_db = st.session_state.students_db[st.session_state.students_db['class'] != "5 Amanah"]
+                st.session_state.students_db = pd.concat([st.session_state.students_db, pd.DataFrame(parsed_amanah)], ignore_index=True)
+                st.success(f"✅ Berjaya memproses {len(parsed_amanah)} murid bagi 5 Amanah!")
+                st.rerun()
+            else:
+                st.error("Ralat memproses fail! Pastikan fail anda mengandungi format data SePKM.")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with col_upload2:
+        st.markdown("<div style='background-color: #FEF3C7; border: 1px solid #FCD34D; padding: 20px; border-radius: 12px;'>", unsafe_allow_html=True)
+        st.markdown("#### 🟡 Muat Naik Kelas 5 Tabligh")
+        tabligh_upload = st.file_uploader("Pilih fail CSV untuk 5 Tabligh", type=['csv'], key="upload_tabligh")
+        if tabligh_upload is not None:
+            parsed_tabligh = parse_psychometric_csv(tabligh_upload, "5 Tabligh")
+            if parsed_tabligh:
+                st.session_state.students_db = st.session_state.students_db[st.session_state.students_db['class'] != "5 Tabligh"]
+                st.session_state.students_db = pd.concat([st.session_state.students_db, pd.DataFrame(parsed_tabligh)], ignore_index=True)
+                st.success(f"✅ Berjaya memproses {len(parsed_tabligh)} murid bagi 5 Tabligh!")
+                st.rerun()
+            else:
+                st.error("Ralat memproses fail! Pastikan fail anda mengandungi format data SePKM.")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    st.write("---")
+    
+    col_form, col_list = st.columns([1, 2])
+    
+    with col_form:
+        st.markdown("<h4 style='color: #1e3a8a;'>Daftar/Edit Murid (Manual)</h4>", unsafe_allow_html=True)
+        with st.form("add_student_form", clear_on_submit=True):
+            new_name = st.text_input("Nama Penuh Murid").upper().strip()
+            new_class = st.selectbox("Kelas Murid", ["5 Sidiq", "5 Amanah", "5 Tabligh"])
+            
+            st.write("**Markah Setiap Tret (0 - 30)**")
+            r_score = st.number_input("R - Realistik", min_value=0, max_value=30, value=0)
+            i_score = st.number_input("I - Investigatif", min_value=0, max_value=30, value=0)
+            a_score = st.number_input("A - Artistik", min_value=0, max_value=30, value=0)
+            s_score = st.number_input("S - Sosial", min_value=0, max_value=30, value=0)
+            e_score = st.number_input("E - Enterprising", min_value=0, max_value=30, value=0)
+            k_score = st.number_input("K - Konvensional", min_value=0, max_value=30, value=0)
+            
+            submitted = st.form_submit_with_button("💾 Simpan Rekod Murid")
+            
+            if submitted:
+                if not new_name:
+                    st.error("Nama murid tidak boleh dibiarkan kosong!")
+                else:
+                    new_student = {
+                        "id": f"manual_{len(st.session_state.students_db) + 1}_{new_name[:5]}",
+                        "name": new_name,
+                        "class": new_class,
+                        "R": r_score,
+                        "I": i_score,
+                        "A": a_score,
+                        "S": s_score,
+                        "E": e_score,
+                        "K": k_score
+                    }
+                    st.session_state.students_db = pd.concat([st.session_state.students_db, pd.DataFrame([new_student])], ignore_index=True)
+                    st.success(f"Murid '{new_name}' berjaya didaftarkan!")
+                    st.rerun()
+
+    with col_list:
+        st.markdown("<h4 style='color: #1e3a8a;'>Senarai Database Semasa</h4>", unsafe_allow_html=True)
+        filter_table_class = st.selectbox("Tapis Paparan Kelas", ["Semua", "5 Sidiq", "5 Amanah", "5 Tabligh"])
+        
+        if filter_table_class == "Semua":
+            table_df = df
+        else:
+            table_df = df[df['class'] == filter_table_class]
+            
+        st.dataframe(
+            table_df[['name', 'class', 'R', 'I', 'A', 'S', 'E', 'K', 'Kod']],
+            column_config={
+                "name": "Nama Murid",
+                "class": "Kelas",
+                "Kod": "Kod Tiga Huruf"
+            },
+            use_container_width=True,
+            hide_index=True
+        )
+        
+        if st.button("🚨 Padam Semua & Reset ke Asal"):
+            st.session_state.students_db = pd.DataFrame(default_students)
+            st.success("Database berjaya di-reset ke asal (Hanya data 5 Sidiq)!")
+            st.rerun()
