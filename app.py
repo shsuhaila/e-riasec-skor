@@ -123,6 +123,7 @@ def parse_psychometric_csv(file_path_or_buffer, class_name):
     students_list = []
     content = ""
     
+    # 1. Membaca kandungan fail dengan sokongan pengekodan pelbagai format
     if isinstance(file_path_or_buffer, str):
         if not os.path.exists(file_path_or_buffer):
             return []
@@ -132,88 +133,235 @@ def parse_psychometric_csv(file_path_or_buffer, class_name):
         except Exception:
             return []
     else:
+        # Cuba membaca menggunakan UTF-8-SIG, jika ralat cuba UTF-16, dan CP1252
         try:
             content = file_path_or_buffer.getvalue().decode('utf-8-sig', errors='ignore')
         except Exception:
-            return []
+            try:
+                content = file_path_or_buffer.getvalue().decode('utf-16', errors='ignore')
+            except Exception:
+                try:
+                    content = file_path_or_buffer.getvalue().decode('cp1252', errors='ignore')
+                except Exception:
+                    return []
 
     lines = content.splitlines()
-    for line in lines:
-        reader = csv.reader([line])
-        row = next(reader, None)
-        if not row or len(row) < 5:
+    if not lines:
+        return []
+
+    best_delimiter = ','
+    header_idx = -1
+    cols_found = []
+    
+    # 2. Imbas 50 baris pertama untuk mencari baris Kepala Jadual (Header) yang sebenar
+    for sep in [',', ';', '\t']:
+        for i, line in enumerate(lines[:50]):
+            try:
+                parts = [p.strip().upper() for p in next(csv.reader([line], delimiter=sep))]
+                
+                # Semak jika baris ini mempunyai ruangan Nama
+                has_name = any('NAMA' in p or 'NAME' in p or 'MURID' in p or 'PELAJAR' in p for p in parts)
+                
+                # Semak jika ada ruangan skor RIASEK
+                riasec_cols = ['R', 'I', 'A', 'S', 'E', 'K']
+                riasec_full_cols = ['REALISTIK', 'INVESTIGATIF', 'ARTISTIK', 'SOSIAL', 'ENTERPRISING', 'KONVENSIONAL', 'REALISTIC', 'INVESTIGATIVE', 'ARTISTIC', 'SOCIAL', 'CONVENTIONAL']
+                
+                has_riasec = sum(1 for r in riasec_cols if r in parts) >= 4 or sum(1 for rf in riasec_full_cols if any(rf in p for p in parts)) >= 4
+                
+                if has_name and has_riasec:
+                    header_idx = i
+                    best_delimiter = sep
+                    cols_found = parts
+                    break
+            except Exception:
+                continue
+        if header_idx != -1:
+            break
+            
+    # Jika gagal mencari baris kepala jadual berformat, cuba cari baris yang hanya mengandungi perkataan 'NAMA'
+    if header_idx == -1:
+        for sep in [',', ';', '\t']:
+            for i, line in enumerate(lines[:50]):
+                try:
+                    parts = [p.strip().upper() for p in next(csv.reader([line], delimiter=sep))]
+                    if any('NAMA' in p or 'NAME' in p for p in parts) and len(parts) >= 7:
+                        header_idx = i
+                        best_delimiter = sep
+                        cols_found = parts
+                        break
+                except Exception:
+                    continue
+            if header_idx != -1:
+                break
+
+    # 3. Jika gagal mengesan kepala jadual, gunakan kaedah Sandaran Kasar (Kesan Nama + 6 Angka)
+    if header_idx == -1:
+        return parse_raw_unformatted_csv(lines, class_name)
+
+    # 4. Memadankan kedudukan ruangan nama dan markah RIASEK
+    name_idx = -1
+    r_idx, i_idx, a_idx, s_idx, e_idx, k_idx = -1, -1, -1, -1, -1, -1
+    
+    for idx, col in enumerate(cols_found):
+        col_clean = col.strip().upper()
+        if 'NAMA' in col_clean or 'NAME' in col_clean or 'MURID' in col_clean or 'PELAJAR' in col_clean:
+            name_idx = idx
+        elif col_clean == 'R' or 'REALISTIK' in col_clean or 'REALISTIC' in col_clean or 'SKOR R' in col_clean:
+            r_idx = idx
+        elif col_clean == 'I' or 'INVESTIGATIF' in col_clean or 'INVESTIGATIVE' in col_clean or 'SKOR I' in col_clean:
+            i_idx = idx
+        elif col_clean == 'A' or 'ARTISTIK' in col_clean or 'ARTISTIC' in col_clean or 'SKOR A' in col_clean:
+            a_idx = idx
+        elif col_clean == 'S' or 'SOSIAL' in col_clean or 'SOCIAL' in col_clean or 'SKOR S' in col_clean:
+            s_idx = idx
+        elif col_clean == 'E' or 'ENTERPRISING' in col_clean or 'ENTERPRISE' in col_clean or 'SKOR E' in col_clean:
+            e_idx = idx
+        elif col_clean == 'K' or 'KONVENSIONAL' in col_clean or 'CONVENTIONAL' in col_clean or 'SKOR K' in col_clean:
+            k_idx = idx
+
+    # Jika nama masih tiada, andaikan ruangan pertama
+    if name_idx == -1:
+        name_idx = 0
+
+    # 5. Membaca baris data bermula selepas baris kepala jadual
+    for line in lines[header_idx + 1:]:
+        if not line.strip():
+            continue
+        try:
+            reader = csv.reader([line], delimiter=best_delimiter)
+            row = next(reader, None)
+            if not row or len(row) <= max(name_idx, r_idx, i_idx, a_idx, s_idx, e_idx, k_idx):
+                continue
+                
+            student_name = row[name_idx].strip().upper()
+            # Abaikan jika baris tersebut bukan nama murid sebenar
+            if not student_name or student_name.isdigit() or len(student_name) < 3 or 'NAMA' in student_name or 'JUMLAH' in student_name or 'PURATA' in student_name:
+                continue
+                
+            def get_score(idx_val):
+                if idx_val != -1 and idx_val < len(row):
+                    val = row[idx_val].strip()
+                    try:
+                        return int(float(val))
+                    except ValueError:
+                        return 0
+                return 0
+                
+            scores = {
+                "R": get_score(r_idx),
+                "I": get_score(i_idx),
+                "A": get_score(a_idx),
+                "S": get_score(s_idx),
+                "E": get_score(e_idx),
+                "K": get_score(k_idx)
+            }
+            
+            # Hanya simpan jika murid mempunyai sekurang-kurangnya satu markah
+            if sum(scores.values()) > 0:
+                students_list.append({
+                    "id": f"{class_name.lower().replace(' ', '_')}_{len(students_list)+1}",
+                    "name": student_name,
+                    "class": class_name,
+                    "R": scores["R"],
+                    "I": scores["I"],
+                    "A": scores["A"],
+                    "S": scores["S"],
+                    "E": scores["E"],
+                    "K": scores["K"]
+                })
+        except Exception:
             continue
             
-        scores = {}
-        name = None
-        
-        for item in row:
-            item_strip = item.strip()
-            if '|' in item_strip:
-                parts = item_strip.split('|')
-                if len(parts) == 2:
-                    key = parts[0].strip().upper()
-                    val_str = parts[1].strip()
-                    if key in ['R', 'I', 'A', 'S', 'E', 'K']:
-                        try:
-                            scores[key] = int(val_str)
-                        except ValueError:
-                            pass
-                            
-        if len(scores) >= 6:
-            cand_name = row[1].strip().upper() if len(row) > 1 else ""
-            if cand_name and not cand_name.isdigit() and len(cand_name) > 3:
-                name = cand_name
-            else:
-                for val in row:
-                    val_clean = val.strip().upper()
-                    if val_clean and len(val_clean) > 3 and not any(char.isdigit() for char in val_clean) and '|' not in val_clean:
-                        name = val_clean
-                        break
-            
-            if name:
-                students_list.append({
-                    "id": f"{class_name.lower().replace(' ', '_')}_{len(students_list)+1}_{name[:5]}",
-                    "name": name,
-                    "class": class_name,
-                    "R": scores.get('R', 0),
-                    "I": scores.get('I', 0),
-                    "A": scores.get('A', 0),
-                    "S": scores.get('S', 0),
-                    "E": scores.get('E', 0),
-                    "K": scores.get('K', 0)
-                })
-                
+    # Jika masih gagal mendapatkan senarai, cuba guna sandaran warisan (legacy fallback)
     if not students_list:
-        try:
-            df_temp = pd.read_csv(io.StringIO(content))
-            df_temp.columns = [c.strip().upper() for c in df_temp.columns]
+        return parse_psychometric_csv_legacy(lines, class_name)
+        
+    return students_list
+
+def parse_raw_unformatted_csv(lines, class_name):
+    """Membaca CSV yang tiada kepala jadual langsung dengan mengesan 1 teks panjang (nama) dan 6 angka (skor)."""
+    students_list = []
+    best_sep = ','
+    for line in lines[:20]:
+        if ';' in line and line.count(';') > line.count(','):
+            best_sep = ';'
+            break
             
-            name_col = None
-            for col in df_temp.columns:
-                if 'NAMA' in col or 'NAME' in col:
-                    name_col = col
-                    break
-            if not name_col and len(df_temp.columns) > 0:
-                name_col = df_temp.columns[0]
+    for line in lines:
+        if not line.strip():
+            continue
+        try:
+            row = [item.strip() for item in next(csv.reader([line], delimiter=best_sep))]
+            if len(row) < 7:
+                continue
                 
-            required_cols = ['R', 'I', 'A', 'S', 'E', 'K']
-            if name_col and all(rc in df_temp.columns for rc in required_cols):
-                for idx, r in df_temp.iterrows():
+            nums = []
+            cand_name = ""
+            for item in row:
+                if item.isdigit():
+                    nums.append(int(item))
+                elif len(item) > 3 and not any(c.isdigit() for c in item) and 'NAMA' not in item.upper() and 'KELAS' not in item.upper():
+                    cand_name = item.upper()
+                    
+            if cand_name and len(nums) >= 6:
+                students_list.append({
+                    "id": f"{class_name.lower().replace(' ', '_')}_{len(students_list)+1}",
+                    "name": cand_name,
+                    "class": class_name,
+                    "R": nums[0], "I": nums[1], "A": nums[2], "S": nums[3], "E": nums[4], "K": nums[5]
+                })
+        except Exception:
+            continue
+    return students_list
+
+def parse_psychometric_csv_legacy(lines, class_name):
+    """Format sandaran lama yang mencari simbol | bagi data tersuai."""
+    students_list = []
+    for line in lines:
+        try:
+            row = next(csv.reader([line]))
+            if not row or len(row) < 5:
+                continue
+                
+            scores = {}
+            name = None
+            for item in row:
+                item_strip = item.strip()
+                if '|' in item_strip:
+                    parts = item_strip.split('|')
+                    if len(parts) == 2:
+                        key = parts[0].strip().upper()
+                        val_str = parts[1].strip()
+                        if key in ['R', 'I', 'A', 'S', 'E', 'K']:
+                            try:
+                                scores[key] = int(val_str)
+                            except ValueError:
+                                pass
+                                
+            if len(scores) >= 6:
+                cand_name = row[1].strip().upper() if len(row) > 1 else ""
+                if cand_name and not cand_name.isdigit() and len(cand_name) > 3:
+                    name = cand_name
+                else:
+                    for val in row:
+                        val_clean = val.strip().upper()
+                        if val_clean and len(val_clean) > 3 and not any(char.isdigit() for char in val_clean) and '|' not in val_clean:
+                            name = val_clean
+                            break
+                if name:
                     students_list.append({
-                        "id": f"{class_name.lower().replace(' ', '_')}_{len(students_list)+1}",
-                        "name": str(r[name_col]).strip().upper(),
+                        "id": f"{class_name.lower().replace(' ', '_')}_{len(students_list)+1}_{name[:5]}",
+                        "name": name,
                         "class": class_name,
-                        "R": int(r['R']),
-                        "I": int(r['I']),
-                        "A": int(r['A']),
-                        "S": int(r['S']),
-                        "E": int(r['E']),
-                        "K": int(r['K'])
+                        "R": scores.get('R', 0),
+                        "I": scores.get('I', 0),
+                        "A": scores.get('A', 0),
+                        "S": scores.get('S', 0),
+                        "E": scores.get('E', 0),
+                        "K": scores.get('K', 0)
                     })
         except Exception:
             pass
-            
     return students_list
 
 default_students = [
