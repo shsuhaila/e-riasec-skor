@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 
-# 1. Konfigurasi Halaman (Page Configuration)
 st.set_page_config(
     page_title="E-RIASEC SKOR",
     page_icon="🎯",
@@ -9,7 +8,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 2. Kamus Definisi RIASEC (RIASEC Dictionary Definitions)
 riasec_details = {
     'R': {
         'name': 'Realistik',
@@ -55,7 +53,6 @@ riasec_details = {
     }
 }
 
-# 3. Data Default (5 Sidiq)
 default_students = [
     { "id": "1", "name": "ANAS BIN HAIRUL AZHAR", "class": "5 Sidiq", "R": 15, "I": 19, "A": 16, "S": 15, "E": 22, "K": 14 },
     { "id": "2", "name": "ANIS FARHANA BINTI SAHIRUDDEN", "class": "5 Sidiq", "R": 14, "I": 25, "A": 12, "S": 23, "E": 19, "K": 24 },
@@ -81,34 +78,27 @@ default_students = [
     { "id": "22", "name": "SITI NUR NAZIHA BINTI MUSA", "class": "5 Sidiq", "R": 21, "I": 23, "A": 25, "S": 18, "E": 22, "K": 17 }
 ]
 
-# 4. Inisialisasi Memori Sesi (Session State) untuk simpan data dinamik
 if 'students_db' not in st.session_state:
     st.session_state.students_db = pd.DataFrame(default_students)
 
-# Fungsi Pengiraan Kod 3 Huruf Teratas
 def get_riasec_code(row):
     scores = {'R': row['R'], 'I': row['I'], 'A': row['A'], 'S': row['S'], 'E': row['E'], 'K': row['K']}
-    # Isih markah dari tinggi ke rendah, jika seri ikut abjad (R, I, A, S, E, K)
     sorted_scores = sorted(scores.items(), key=lambda item: (-item[1], item[0]))
     return "".join([item[0] for item in sorted_scores[:3]])
 
-# Tambah ruangan Kod ke dalam DataFrame semasa
 df = st.session_state.students_db.copy()
 df['Kod'] = df.apply(get_riasec_code, axis=1)
 
-# Header Utama
-st.markdown("<h1 style='text-align: center; color: #1E3A8A;'>🎓 E-RIASEC SKOR</h1>", unsafe_style=True)
-st.markdown("<p style='text-align: center; font-size: 1.1em; color: #4B5563;'>Sistem Carian & Analisis Kod Kerjaya Murid (5 Sidiq, 5 Amanah, 5 Tabligh)</p>", unsafe_style=True)
+st.markdown("<h1 style='text-align: center; color: #1E3A8A;'>🎓 E-RIASEC SKOR</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; font-size: 1.1em; color: #4B5563;'>Sistem Carian & Analisis Kod Kerjaya Murid (5 Sidiq, 5 Amanah, 5 Tabligh)</p>", unsafe_allow_html=True)
 st.write("---")
 
-# Tab Atas
 tab_carian, tab_statistik, tab_urus = st.tabs([
     "🔍 Carian Individu", 
     "📊 Statistik Kelas", 
     "⚙️ Urus Database"
 ])
 
-# ================= TAB 1: CARIAN INDIVIDU =================
 with tab_carian:
     st.subheader("Carian Profil Kerjaya Murid")
     
@@ -116,7 +106,6 @@ with tab_carian:
     with col1:
         selected_class = st.selectbox("Pilih Kelas", ["5 Sidiq", "5 Amanah", "5 Tabligh"], key="search_class")
     
-    # Filter murid berdasarkan kelas
     class_df = df[df['class'] == selected_class].sort_values(by="name")
     
     with col2:
@@ -130,7 +119,6 @@ with tab_carian:
         student_data = class_df[class_df['name'] == selected_student_name].iloc[0]
         code = student_data['Kod']
         
-        # Banner Profil Murid
         st.markdown(
             f"""
             <div style="background: linear-gradient(135deg, #1e293b, #0f172a); padding: 25px; border-radius: 15px; color: white; margin-bottom: 25px;">
@@ -145,10 +133,9 @@ with tab_carian:
                 </div>
             </div>
             """,
-            unsafe_style=True
+            unsafe_allow_html=True
         )
         
-        # Kad Analisis 3 Huruf Utama
         st.write("### 🔍 Huraian Personaliti Kod Kerjaya:")
         cols_cards = st.columns(3)
         for idx, char in enumerate(code):
@@ -173,10 +160,9 @@ with tab_carian:
                         </div>
                     </div>
                     """,
-                    unsafe_style=True
+                    unsafe_allow_html=True
                 )
         
-        # Markah Penuh Progress Bar
         st.write("---")
         st.write("### 📈 Markah Penuh Mengikut Tret")
         
@@ -195,7 +181,6 @@ with tab_carian:
     else:
         st.info("💡 Sila pilih kelas terlebih dahulu, kemudian klik pada nama murid untuk memulakan analisis.")
 
-# ================= TAB 2: STATISTIK KELAS =================
 with tab_statistik:
     st.subheader("Taburan Kecenderungan Kelas")
     selected_analysis_class = st.selectbox("Pilih Kelas Untuk Analisis", ["5 Sidiq", "5 Amanah", "5 Tabligh"], key="analysis_class")
@@ -205,22 +190,18 @@ with tab_statistik:
     if analysis_df.empty:
         st.warning(f"⚠️ Tiada data tersedia untuk kelas {selected_analysis_class}. Sila isi maklumat murid di tab 'Urus Database'.")
     else:
-        # Cari huruf pertama kod kerjaya (Kod Dominan)
         analysis_df['Dominan'] = analysis_df['Kod'].str[0]
         freq = analysis_df['Dominan'].value_counts()
         
-        # Isikan frekuensi kosong untuk huruf yang tiada murid langsung
         for char in ['R', 'I', 'A', 'S', 'E', 'K']:
             if char not in freq:
                 freq[char] = 0
         
         freq = freq.reindex(['R', 'I', 'A', 'S', 'E', 'K'])
-        
         col_chart, col_details = st.columns([3, 2])
         
         with col_chart:
             st.write("**Carta Taburan Kod Dominan Utama (Huruf Pertama)**")
-            # Tukar siri kepada DataFrame untuk dibaca oleh Streamlit Chart
             chart_data = pd.DataFrame({
                 'Kecenderungan': ['Realistik (R)', 'Investigatif (I)', 'Artistik (A)', 'Sosial (S)', 'Enterprising (E)', 'Konvensional (K)'],
                 'Jumlah Murid': freq.values
@@ -241,77 +222,7 @@ with tab_statistik:
                         <span><b>{count} Murid</b> ({pct:.0f}%)</span>
                     </div>
                     """,
-                    unsafe_style=True
+                    unsafe_allow_html=True
                 )
             
-            # Rumusan
-            dominant_char = sorted_freq.index[0]
-            sec_dominant_char = sorted_freq.index[1]
-            st.info(f"💡 **Dominasi Kelas:** Majoriti murid kelas {selected_analysis_class} mempunyai ciri **{riasec_details[dominant_char]['name']} ({dominant_char})** sebagai kecenderungan paling utama, diikuti oleh **{riasec_details[sec_dominant_char]['name']} ({sec_dominant_char})**!")
-
-# ================= TAB 3: URUS DATABASE =================
-with tab_urus:
-    col_form, col_list = st.columns([1, 2])
-    
-    with col_form:
-        st.subheader("Daftar/Edit Murid")
-        with st.form("add_student_form", clear_on_submit=True):
-            new_name = st.text_input("Nama Penuh Murid").upper().strip()
-            new_class = st.selectbox("Kelas Murid", ["5 Sidiq", "5 Amanah", "5 Tabligh"])
-            
-            st.write("**Markah Setiap Tret (0 - 30)**")
-            r_score = st.number_input("R - Realistik", min_value=0, max_value=30, value=0)
-            i_score = st.number_input("I - Investigatif", min_value=0, max_value=30, value=0)
-            a_score = st.number_input("A - Artistik", min_value=0, max_value=30, value=0)
-            s_score = st.number_input("S - Sosial", min_value=0, max_value=30, value=0)
-            e_score = st.number_input("E - Enterprising", min_value=0, max_value=30, value=0)
-            k_score = st.number_input("K - Konvensional", min_value=0, max_value=30, value=0)
-            
-            submitted = st.form_submit_with_button("Simpan Rekod Murid")
-            
-            if submitted:
-                if not new_name:
-                    st.error("Nama murid tidak boleh dibiarkan kosong!")
-                else:
-                    new_student = {
-                        "id": str(len(st.session_state.students_db) + 1),
-                        "name": new_name,
-                        "class": new_class,
-                        "R": r_score,
-                        "I": i_score,
-                        "A": a_score,
-                        "S": s_score,
-                        "E": e_score,
-                        "K": k_score
-                    }
-                    # Tambah rekod baharu ke session_state
-                    st.session_state.students_db = pd.concat([st.session_state.students_db, pd.DataFrame([new_student])], ignore_index=True)
-                    st.success(f"Murid '{new_name}' berjaya didaftarkan!")
-                    st.rerun()
-
-    with col_list:
-        st.subheader("Senarai Database Semasa")
-        filter_table_class = st.selectbox("Tapis Paparan Kelas", ["Semua", "5 Sidiq", "5 Amanah", "5 Tabligh"])
-        
-        # Penapis mengikut kelas
-        if filter_table_class == "Semua":
-            table_df = df
-        else:
-            table_df = df[df['class'] == filter_table_class]
-            
-        st.dataframe(
-            table_df[['name', 'class', 'R', 'I', 'A', 'S', 'E', 'K', 'Kod']],
-            column_config={
-                "name": "Nama Murid",
-                "class": "Kelas",
-                "Kod": "Kod Tiga Huruf"
-            },
-            use_container_width=True,
-            hide_index=True
-        )
-        
-        # Pilihan untuk reset database ke asal
-        if st.button("🚨 Padam Semua & Reset ke Asal"):
-            st.session_state.students_db = pd.DataFrame(default_students)
-            st.success("Database berjaya di-reset!")
-            st.rerun()
+            dominant_char = sorted_freq
