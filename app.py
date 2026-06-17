@@ -642,7 +642,7 @@ with tab_urus:
             e_score = st.number_input("E - Enterprising", min_value=0, max_value=30, value=0)
             k_score = st.number_input("K - Konvensional", min_value=0, max_value=30, value=0)
             
-       submitted = st.form_submit_button("💾 Simpan Rekod Murid")
+            submitted = st.form_submit_button("💾 Simpan Rekod Murid")
             
             if submitted:
                 if not new_name:
