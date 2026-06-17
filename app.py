@@ -589,101 +589,122 @@ with tab_statistik:
 
 # ==================== TAB 3: URUS DATABASE ====================
 with tab_urus:
-    st.markdown("<h3 style='color: #1e3a8a;'>Urus Database & Muat Naik CSV</h3>", unsafe_allow_html=True)
-    st.info("💡 **Muat Naik Mudah:** Anda boleh memuat naik fail CSV psikometrik yang dieksport terus daripada sistem SePKM sekolah anda tanpa sebarang perubahan format!")
+    st.markdown("<h3 style='color: #1e3a8a;'>🔒 Kawalan Akses Pentadbir</h3>", unsafe_allow_html=True)
     
-    col_upload1, col_upload2 = st.columns(2)
-    
-    with col_upload1:
-        st.markdown("<div style='background-color: #ECFDF5; border: 1px solid #A7F3D0; padding: 20px; border-radius: 12px;'>", unsafe_allow_html=True)
-        st.markdown("#### 🟢 Muat Naik Kelas 5 Amanah")
-        amanah_upload = st.file_uploader("Pilih fail CSV untuk 5 Amanah", type=['csv'], key="upload_amanah")
-        if amanah_upload is not None:
-            parsed_amanah = parse_psychometric_csv(amanah_upload, "5 Amanah")
-            if parsed_amanah:
-                st.session_state.students_db = st.session_state.students_db[st.session_state.students_db['class'] != "5 Amanah"]
-                st.session_state.students_db = pd.concat([st.session_state.students_db, pd.DataFrame(parsed_amanah)], ignore_index=True)
-                st.success(f"✅ Berjaya memproses {len(parsed_amanah)} murid bagi 5 Amanah!")
+    # Inisialisasi status log masuk admin jika belum wujud
+    if "is_admin" not in st.session_state:
+        st.session_state.is_admin = False
+        
+    if not st.session_state.is_admin:
+        kata_laluan = st.text_input("Sila masukkan Kata Laluan Pentadbir untuk mengedit atau memuat naik data:", type="password")
+        if st.button("🔑 Log Masuk"):
+            # Anda boleh menukar 'cikgu123' di bawah kepada sebarang kata laluan pilihan anda sendiri
+            if kata_laluan == "ellan711": 
+                st.session_state.is_admin = True
+                st.success("Log masuk berjaya!")
                 st.rerun()
             else:
-                st.error("Ralat memproses fail! Pastikan fail anda mengandungi format data SePKM.")
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    with col_upload2:
-        st.markdown("<div style='background-color: #FEF3C7; border: 1px solid #FCD34D; padding: 20px; border-radius: 12px;'>", unsafe_allow_html=True)
-        st.markdown("#### 🟡 Muat Naik Kelas 5 Tabligh")
-        tabligh_upload = st.file_uploader("Pilih fail CSV untuk 5 Tabligh", type=['csv'], key="upload_tabligh")
-        if tabligh_upload is not None:
-            parsed_tabligh = parse_psychometric_csv(tabligh_upload, "5 Tabligh")
-            if parsed_tabligh:
-                st.session_state.students_db = st.session_state.students_db[st.session_state.students_db['class'] != "5 Tabligh"]
-                st.session_state.students_db = pd.concat([st.session_state.students_db, pd.DataFrame(parsed_tabligh)], ignore_index=True)
-                st.success(f"✅ Berjaya memproses {len(parsed_tabligh)} murid bagi 5 Tabligh!")
-                st.rerun()
-            else:
-                st.error("Ralat memproses fail! Pastikan fail anda mengandungi format data SePKM.")
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    st.write("---")
-    
-    col_form, col_list = st.columns([1, 2])
-    
-    with col_form:
-        st.markdown("<h4 style='color: #1e3a8a;'>Daftar/Edit Murid (Manual)</h4>", unsafe_allow_html=True)
-        with st.form("add_student_form", clear_on_submit=True):
-            new_name = st.text_input("Nama Penuh Murid").upper().strip()
-            new_class = st.selectbox("Kelas Murid", ["5 Sidiq", "5 Amanah", "5 Tabligh"])
-            
-            st.write("**Markah Setiap Tret (0 - 30)**")
-            r_score = st.number_input("R - Realistik", min_value=0, max_value=30, value=0)
-            i_score = st.number_input("I - Investigatif", min_value=0, max_value=30, value=0)
-            a_score = st.number_input("A - Artistik", min_value=0, max_value=30, value=0)
-            s_score = st.number_input("S - Sosial", min_value=0, max_value=30, value=0)
-            e_score = st.number_input("E - Enterprising", min_value=0, max_value=30, value=0)
-            k_score = st.number_input("K - Konvensional", min_value=0, max_value=30, value=0)
-            
-            submitted = st.form_submit_button("💾 Simpan Rekod Murid")
-            
-            if submitted:
-                if not new_name:
-                    st.error("Nama murid tidak boleh dibiarkan kosong!")
-                else:
-                    new_student = {
-                        "id": f"manual_{len(st.session_state.students_db) + 1}_{new_name[:5]}",
-                        "name": new_name,
-                        "class": new_class,
-                        "R": r_score,
-                        "I": i_score,
-                        "A": a_score,
-                        "S": s_score,
-                        "E": e_score,
-                        "K": k_score
-                    }
-                    st.session_state.students_db = pd.concat([st.session_state.students_db, pd.DataFrame([new_student])], ignore_index=True)
-                    st.success(f"Murid '{new_name}' berjaya didaftarkan!")
-                    st.rerun()
-
-    with col_list:
-        st.markdown("<h4 style='color: #1e3a8a;'>Senarai Database Semasa</h4>", unsafe_allow_html=True)
-        filter_table_class = st.selectbox("Tapis Paparan Kelas", ["Semua", "5 Sidiq", "5 Amanah", "5 Tabligh"])
-        
-        if filter_table_class == "Semua":
-            table_df = df
-        else:
-            table_df = df[df['class'] == filter_table_class]
-            
-        st.dataframe(
-            table_df[['name', 'class', 'R', 'I', 'A', 'S', 'E', 'K', 'Kod']],
-            column_config={
-                "name": "Nama Murid",
-                "class": "Kelas",
-                "Kod": "Kod Tiga Huruf"
-            },
-            use_container_width=True,
-            hide_index=True
-        )
-        
-        if st.button("🚨 Padam Semua & Reset ke Asal"):
-            st.session_state.students_db = pd.DataFrame(default_students)
-            st.success("Database berjaya di-reset ke asal (Hanya data 5 Sidiq)!")
+                st.error("Ralat: Kata laluan salah!")
+    else:
+        if st.button("🚪 Log Keluar Pentadbir"):
+            st.session_state.is_admin = False
             st.rerun()
+            
+        st.markdown("<h3 style='color: #1e3a8a;'>Urus Database & Muat Naik CSV</h3>", unsafe_allow_html=True)
+        st.info("💡 **Muat Naik Mudah:** Anda boleh memuat naik fail CSV psikometrik yang dieksport terus daripada sistem SePKM sekolah anda tanpa sebarang perubahan format!")
+        
+        col_upload1, col_upload2 = st.columns(2)
+        
+        with col_upload1:
+            st.markdown("<div style='background-color: #ECFDF5; border: 1px solid #A7F3D0; padding: 20px; border-radius: 12px;'>", unsafe_allow_html=True)
+            st.markdown("#### 🟢 Muat Naik Kelas 5 Amanah")
+            amanah_upload = st.file_uploader("Pilih fail CSV untuk 5 Amanah", type=['csv'], key="upload_amanah")
+            if amanah_upload is not None:
+                parsed_amanah = parse_psychometric_csv(amanah_upload, "5 Amanah")
+                if parsed_amanah:
+                    st.session_state.students_db = st.session_state.students_db[st.session_state.students_db['class'] != "5 Amanah"]
+                    st.session_state.students_db = pd.concat([st.session_state.students_db, pd.DataFrame(parsed_amanah)], ignore_index=True)
+                    st.success(f"✅ Berjaya memproses {len(parsed_amanah)} murid bagi 5 Amanah!")
+                    st.rerun()
+                else:
+                    st.error("Ralat memproses fail! Pastikan fail anda mengandungi format data SePKM.")
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        with col_upload2:
+            st.markdown("<div style='background-color: #FEF3C7; border: 1px solid #FCD34D; padding: 20px; border-radius: 12px;'>", unsafe_allow_html=True)
+            st.markdown("#### 🟡 Muat Naik Kelas 5 Tabligh")
+            tabligh_upload = st.file_uploader("Pilih fail CSV untuk 5 Tabligh", type=['csv'], key="upload_tabligh")
+            if tabligh_upload is not None:
+                parsed_tabligh = parse_psychometric_csv(tabligh_upload, "5 Tabligh")
+                if parsed_tabligh:
+                    st.session_state.students_db = st.session_state.students_db[st.session_state.students_db['class'] != "5 Tabligh"]
+                    st.session_state.students_db = pd.concat([st.session_state.students_db, pd.DataFrame(parsed_tabligh)], ignore_index=True)
+                    st.success(f"✅ Berjaya memproses {len(parsed_tabligh)} murid bagi 5 Tabligh!")
+                    st.rerun()
+                else:
+                    st.error("Ralat memproses fail! Pastikan fail anda mengandungi format data SePKM.")
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        st.write("---")
+        
+        col_form, col_list = st.columns([1, 2])
+        
+        with col_form:
+            st.markdown("<h4 style='color: #1e3a8a;'>Daftar/Edit Murid (Manual)</h4>", unsafe_allow_html=True)
+            with st.form("add_student_form", clear_on_submit=True):
+                new_name = st.text_input("Nama Penuh Murid").upper().strip()
+                new_class = st.selectbox("Kelas Murid", ["5 Sidiq", "5 Amanah", "5 Tabligh"])
+                
+                st.write("**Markah Setiap Tret (0 - 30)**")
+                r_score = st.number_input("R - Realistik", min_value=0, max_value=30, value=0)
+                i_score = st.number_input("I - Investigatif", min_value=0, max_value=30, value=0)
+                a_score = st.number_input("A - Artistik", min_value=0, max_value=30, value=0)
+                s_score = st.number_input("S - Sosial", min_value=0, max_value=30, value=0)
+                e_score = st.number_input("E - Enterprising", min_value=0, max_value=30, value=0)
+                k_score = st.number_input("K - Konvensional", min_value=0, max_value=30, value=0)
+                
+                submitted = st.form_submit_button("💾 Simpan Rekod Murid")
+                
+                if submitted:
+                    if not new_name:
+                        st.error("Nama murid tidak boleh dibiarkan kosong!")
+                    else:
+                        new_student = {
+                            "id": f"manual_{len(st.session_state.students_db) + 1}_{new_name[:5]}",
+                            "name": new_name,
+                            "class": new_class,
+                            "R": r_score,
+                            "I": i_score,
+                            "A": a_score,
+                            "S": s_score,
+                            "E": e_score,
+                            "K": k_score
+                        }
+                        st.session_state.students_db = pd.concat([st.session_state.students_db, pd.DataFrame([new_student])], ignore_index=True)
+                        st.success(f"Murid '{new_name}' berjaya didaftarkan!")
+                        st.rerun()
+
+        with col_list:
+            st.markdown("<h4 style='color: #1e3a8a;'>Senarai Database Semasa</h4>", unsafe_allow_html=True)
+            filter_table_class = st.selectbox("Tapis Paparan Kelas", ["Semua", "5 Sidiq", "5 Amanah", "5 Tabligh"])
+            
+            if filter_table_class == "Semua":
+                table_df = df
+            else:
+                table_df = df[df['class'] == filter_table_class]
+                
+            st.dataframe(
+                table_df[['name', 'class', 'R', 'I', 'A', 'S', 'E', 'K', 'Kod']],
+                column_config={
+                    "name": "Nama Murid",
+                    "class": "Kelas",
+                    "Kod": "Kod Tiga Huruf"
+                },
+                use_container_width=True,
+                hide_index=True
+            )
+            
+            if st.button("🚨 Padam Semua & Reset ke Asal"):
+                st.session_state.students_db = pd.DataFrame(default_students)
+                st.success("Database berjaya di-reset ke asal (Hanya data 5 Sidiq)!")
+                st.rerun()
