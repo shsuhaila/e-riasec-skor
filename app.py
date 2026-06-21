@@ -256,7 +256,7 @@ with tab_urus:
         with st.form("login_form"):
             password_input = st.text_input("🔑 Masukkan Kata Laluan Pentadbir:", type="password")
             if st.form_submit_button("Log Masuk"):
-                if password_input == "cikgu123":
+                if password_input == "ellan711":
                     st.session_state.logged_in = True
                     st.balloons()  # Confetti effect!
                     st.rerun()
