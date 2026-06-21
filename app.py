@@ -82,13 +82,3 @@ st.markdown("""
 
 # [ ... rest of your UI code remains similar, but now utilizing the 'riasec-card' class ... ]
 
-# Contoh penggunaan kad baru:
-# st.markdown(f'<div class="riasec-card"><h4>{detail["name"]}</h4><p>{detail["desc"]}</p></div>', unsafe_allow_html=True)
-```
-
-### Cara Kemas Kini:
-1. Salin keseluruhan kod baru di atas (yang mengandungi penambahbaikan CSS).
-2. Tampal ke dalam fail `app.py` anda di GitHub.
-3. Anda boleh terus menggunakan kelas CSS `<div class="riasec-card">` di mana-mana bahagian kod anda untuk menghasilkan kad yang cantik dan mempunyai kesan *hover* automatik.
-
-Sekarang aplikasi anda akan kelihatan jauh lebih profesional dan menarik untuk digunakan oleh murid-murid!
