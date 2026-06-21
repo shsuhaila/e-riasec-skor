@@ -163,7 +163,10 @@ class_badges = {
     "1 Fatonah": {"bg": "#FFE4E6", "txt": "#9F1239", "border": "#FECDD3", "emoji": "🔴"},
     "1 Tabligh": {"bg": "#FEF3C7", "txt": "#92400E", "border": "#FCD34D", "emoji": "🟡"},
     "1 Sidiq": {"bg": "#E0F2FE", "txt": "#0369A1", "border": "#7DD3FC", "emoji": "🔵"},
-    "2 Fatonah": {"bg": "#ECFDF5", "txt": "#047857", "border": "#6EE7B7", "emoji": "🟢"}
+    "2 Fatonah": {"bg": "#ECFDF5", "txt": "#047857", "border": "#6EE7B7", "emoji": "🟢"},
+    "2 Tabligh": {"bg": "#FEF3C7", "txt": "#92400E", "border": "#FCD34D", "emoji": "🟡"},
+    "2 Sidiq": {"bg": "#E0F2FE", "txt": "#0369A1", "border": "#7DD3FC", "emoji": "🔵"},
+    "2 Amanah": {"bg": "#D1FAE5", "txt": "#065F46", "border": "#6EE7B7", "emoji": "🟢"}
 }
 
 def parse_itp_csv(file_path_or_buffer, class_name):
@@ -302,12 +305,18 @@ if 'students_db' not in st.session_state:
 if 'itp_db' not in st.session_state:
     st.session_state.itp_db = pd.DataFrame(default_itp_students)
     
-    itp_file = "senarai-murid-psikometrik-FATONAH-INVENTORI-TRET-PERSONALITI-TINGKATAN-2-2026.csv"
-    if os.path.exists(itp_file):
-        loaded_itp = parse_itp_csv(itp_file, "2 Fatonah")
-        if loaded_itp:
-            st.session_state.itp_db = st.session_state.itp_db[st.session_state.itp_db['class'] != "2 Fatonah"]
-            st.session_state.itp_db = pd.concat([st.session_state.itp_db, pd.DataFrame(loaded_itp)], ignore_index=True)
+    itp_mappings = [
+        ("2 Fatonah", "senarai-murid-psikometrik-FATONAH-INVENTORI-TRET-PERSONALITI-TINGKATAN-2-2026.csv"),
+        ("2 Tabligh", "senarai-murid-psikometrik-TABLIGH-INVENTORI-TRET-PERSONALITI-TINGKATAN-2-2026.csv"),
+        ("2 Sidiq", "senarai-murid-psikometrik-SIDIQ-INVENTORI-TRET-PERSONALITI-TINGKATAN-2-2026.csv"),
+        ("2 Amanah", "senarai-murid-psikometrik-AMANAH-INVENTORI-TRET-PERSONALITI-TINGKATAN-2-2026.csv")
+    ]
+    for c_name, f_name in itp_mappings:
+        if os.path.exists(f_name):
+            loaded_itp = parse_itp_csv(f_name, c_name)
+            if loaded_itp:
+                st.session_state.itp_db = st.session_state.itp_db[st.session_state.itp_db['class'] != c_name]
+                st.session_state.itp_db = pd.concat([st.session_state.itp_db, pd.DataFrame(loaded_itp)], ignore_index=True)
 
 def get_riasec_code(row):
     scores = {'R': row['R'], 'I': row['I'], 'A': row['A'], 'S': row['S'], 'E': row['E'], 'K': row['K']}
@@ -455,7 +464,7 @@ if active_test == "🎯 Minat Kerjaya (IMK - RIASEC)":
             with st.form("login_form_imk"):
                 password_input = st.text_input("🔑 Masukkan Kata Laluan Pentadbir:", type="password")
                 if st.form_submit_button("Log Masuk"):
-                    if password_input == "cikgu123":
+                    if password_input == "ellan711":
                         st.session_state.logged_in = True
                         st.balloons()
                         st.rerun()
@@ -514,7 +523,7 @@ else:
         with col_t_itp:
             selected_form_itp = st.selectbox("🎓 Pilih Tingkatan", ["Tingkatan 2"])
         with col_k_itp:
-            available_classes_itp = ["2 Fatonah"]
+            available_classes_itp = ["2 Fatonah", "2 Tabligh", "2 Sidiq", "2 Amanah"]
             selected_class_itp = st.selectbox("📁 Pilih Kelas", available_classes_itp)
             
         class_df_itp = df_itp[df_itp['class'] == selected_class_itp].sort_values(by="name")
@@ -582,7 +591,7 @@ else:
         with col_st1_itp:
             sel_form_stats_itp = st.selectbox("🎓 Pilih Tingkatan Analisis", ["Tingkatan 2"], key="t_stats_itp")
         with col_st2_itp:
-            available_classes_stats_itp = ["2 Fatonah"]
+            available_classes_stats_itp = ["2 Fatonah", "2 Tabligh", "2 Sidiq", "2 Amanah"]
             selected_analysis_class_itp = st.selectbox("📂 Pilih Kelas Analisis", available_classes_stats_itp, key="stats_class_itp")
             
         analysis_df_itp = df_itp[df_itp['class'] == selected_analysis_class_itp]
@@ -630,7 +639,7 @@ else:
             with st.form("login_form_itp"):
                 password_input = st.text_input("🔑 Masukkan Kata Laluan Pentadbir:", type="password")
                 if st.form_submit_button("Log Masuk"):
-                    if password_input == "ellan711":
+                    if password_input == "cikgu123":
                         st.session_state.logged_in = True
                         st.balloons()
                         st.rerun()
@@ -643,20 +652,46 @@ else:
             st.write("---")
             
             st.markdown("#### 📥 Muat Naik Fail CSV Sistem SePKM (Tret Personaliti - Tingkatan 2)")
-            f_itp_upload = st.file_uploader("Pilih fail CSV Kelas 2 Fatonah (ITP)", type=['csv'])
-            if f_itp_upload:
-                res_itp = parse_itp_csv(f_itp_upload, "2 Fatonah")
-                if res_itp:
-                    st.session_state.itp_db = pd.concat([st.session_state.itp_db[st.session_state.itp_db['class'] != "2 Fatonah"], pd.DataFrame(res_itp)], ignore_index=True)
-                    st.toast("Data 2 Fatonah (ITP) Dimuatkan!")
-                    st.rerun()
-                else: st.error("Gagal membaca format CSV SePKM ITP.")
+            up_itp1, up_itp2 = st.columns(2)
+            with up_itp1:
+                f_fat2 = st.file_uploader("Pilih fail CSV Kelas 2 Fatonah (ITP)", type=['csv'], key="f_fat2")
+                if f_fat2:
+                    res_itp = parse_itp_csv(f_fat2, "2 Fatonah")
+                    if res_itp:
+                        st.session_state.itp_db = pd.concat([st.session_state.itp_db[st.session_state.itp_db['class'] != "2 Fatonah"], pd.DataFrame(res_itp)], ignore_index=True)
+                        st.toast("Data 2 Fatonah (ITP) Dimuatkan!")
+                        st.rerun()
+                
+                f_sid2 = st.file_uploader("Pilih fail CSV Kelas 2 Sidiq (ITP)", type=['csv'], key="f_sid2")
+                if f_sid2:
+                    res_itp = parse_itp_csv(f_sid2, "2 Sidiq")
+                    if res_itp:
+                        st.session_state.itp_db = pd.concat([st.session_state.itp_db[st.session_state.itp_db['class'] != "2 Sidiq"], pd.DataFrame(res_itp)], ignore_index=True)
+                        st.toast("Data 2 Sidiq (ITP) Dimuatkan!")
+                        st.rerun()
+
+            with up_itp2:
+                f_tab2 = st.file_uploader("Pilih fail CSV Kelas 2 Tabligh (ITP)", type=['csv'], key="f_tab2")
+                if f_tab2:
+                    res_itp = parse_itp_csv(f_tab2, "2 Tabligh")
+                    if res_itp:
+                        st.session_state.itp_db = pd.concat([st.session_state.itp_db[st.session_state.itp_db['class'] != "2 Tabligh"], pd.DataFrame(res_itp)], ignore_index=True)
+                        st.toast("Data 2 Tabligh (ITP) Dimuatkan!")
+                        st.rerun()
+                
+                f_ama2 = st.file_uploader("Pilih fail CSV Kelas 2 Amanah (ITP)", type=['csv'], key="f_ama2")
+                if f_ama2:
+                    res_itp = parse_itp_csv(f_ama2, "2 Amanah")
+                    if res_itp:
+                        st.session_state.itp_db = pd.concat([st.session_state.itp_db[st.session_state.itp_db['class'] != "2 Amanah"], pd.DataFrame(res_itp)], ignore_index=True)
+                        st.toast("Data 2 Amanah (ITP) Dimuatkan!")
+                        st.rerun()
             
             st.write("---")
             st.markdown("#### ➕ Daftar Murid Secara Manual (ITP)")
             with st.form("manual_form_itp"):
                 m_name = st.text_input("Nama Penuh Murid:").upper()
-                m_class = st.selectbox("Kelas Murid:", ["2 Fatonah"])
+                m_class = st.selectbox("Kelas Murid:", ["2 Fatonah", "2 Tabligh", "2 Sidiq", "2 Amanah"])
                 
                 scores_manual = {}
                 cols = st.columns(5)
