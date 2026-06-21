@@ -65,7 +65,9 @@ class_badges = {
     "5 Amanah": {"bg": "#D1FAE5", "txt": "#065F46", "border": "#6EE7B7", "emoji": "🟢"},
     "5 Tabligh": {"bg": "#FEF3C7", "txt": "#92400E", "border": "#FCD34D", "emoji": "🟡"},
     "1 Amanah": {"bg": "#F3E8FF", "txt": "#6B21A8", "border": "#D8B4FE", "emoji": "🟣"},
-    "1 Fatonah": {"bg": "#FFE4E6", "txt": "#9F1239", "border": "#FECDD3", "emoji": "🔴"}
+    "1 Fatonah": {"bg": "#FFE4E6", "txt": "#9F1239", "border": "#FECDD3", "emoji": "🔴"},
+    "1 Tabligh": {"bg": "#FEF3C7", "txt": "#92400E", "border": "#FCD34D", "emoji": "🟡"},
+    "1 Sidiq": {"bg": "#E0F2FE", "txt": "#0369A1", "border": "#7DD3FC", "emoji": "🔵"}
 }
 
 # Pembaca Fail CSV Format SePKM Dinamik
@@ -150,7 +152,9 @@ if 'students_db' not in st.session_state:
         ("5 Amanah", "senarai-murid-psikometrik-AMANAH-INVENTORI-MINAT-KERJAYA-TINGKATAN-5-2026.csv"),
         ("5 Tabligh", "senarai-murid-psikometrik-TABLIGH-INVENTORI-MINAT-KERJAYA-TINGKATAN-5-2026.csv"),
         ("1 Amanah", "senarai-murid-psikometrik-AMANAH-INVENTORI-MINAT-KERJAYA-TINGKATAN-1-2026.csv"),
-        ("1 Fatonah", "senarai-murid-psikometrik-FATONAH-INVENTORI-MINAT-KERJAYA-TINGKATAN-1-2026.csv")
+        ("1 Fatonah", "senarai-murid-psikometrik-FATONAH-INVENTORI-MINAT-KERJAYA-TINGKATAN-1-2026.csv"),
+        ("1 Tabligh", "senarai-murid-psikometrik-TABLIGH-INVENTORI-MINAT-KERJAYA-TINGKATAN-1-2026.csv"),
+        ("1 Sidiq", "senarai-murid-psikometrik-SIDIQ-INVENTORI-MINAT-KERJAYA-TINGKATAN-1-2026.csv")
     ]
     
     for c_name, f_name in csv_mappings:
@@ -190,7 +194,7 @@ with tab_carian:
         if selected_form == "Tingkatan 5":
             available_classes = ["5 Sidiq", "5 Amanah", "5 Tabligh"]
         else:
-            available_classes = ["1 Amanah", "1 Fatonah"]
+            available_classes = ["1 Amanah", "1 Fatonah", "1 Tabligh", "1 Sidiq"]
         selected_class = st.selectbox("📁 Pilih Kelas", available_classes)
         
     class_df = df[df['class'] == selected_class].sort_values(by="name")
@@ -248,7 +252,7 @@ with tab_statistik:
         if sel_form_stats == "Tingkatan 5":
             available_classes_stats = ["5 Sidiq", "5 Amanah", "5 Tabligh"]
         else:
-            available_classes_stats = ["1 Amanah", "1 Fatonah"]
+            available_classes_stats = ["1 Amanah", "1 Fatonah", "1 Tabligh", "1 Sidiq"]
         selected_analysis_class = st.selectbox("📂 Pilih Kelas Analisis", available_classes_stats, key="stats_class")
         
     analysis_df = df[df['class'] == selected_analysis_class]
@@ -333,6 +337,26 @@ with tab_urus:
                     st.rerun()
                 else: st.error("Format data SePKM tidak ditemui atau fail kosong.")
 
+            st.markdown("<div style='background:#fffbeb; padding:15px; border-radius:12px; border:1px solid #fcd34d; margin-top:15px;'><strong>🟡 Fail Data 1 Tabligh</strong></div>", unsafe_allow_html=True)
+            f_tb1 = st.file_uploader("Pilih fail CSV Kelas 1 Tabligh", type=['csv'], key="f_tb1")
+            if f_tb1:
+                res = parse_psychometric_csv(f_tb1, "1 Tabligh")
+                if res:
+                    st.session_state.students_db = pd.concat([st.session_state.students_db[st.session_state.students_db['class'] != "1 Tabligh"], pd.DataFrame(res)], ignore_index=True)
+                    st.toast("Data 1 Tabligh Berjaya Dimuatkan! 🎉")
+                    st.rerun()
+                else: st.error("Format data SePKM tidak ditemui atau fail kosong.")
+
+            st.markdown("<div style='background:#e0f2fe; padding:15px; border-radius:12px; border:1px solid #7dd3fc; margin-top:15px;'><strong>🔵 Fail Data 1 Sidiq</strong></div>", unsafe_allow_html=True)
+            f_sid1 = st.file_uploader("Pilih fail CSV Kelas 1 Sidiq", type=['csv'], key="f_sid1")
+            if f_sid1:
+                res = parse_psychometric_csv(f_sid1, "1 Sidiq")
+                if res:
+                    st.session_state.students_db = pd.concat([st.session_state.students_db[st.session_state.students_db['class'] != "1 Sidiq"], pd.DataFrame(res)], ignore_index=True)
+                    st.toast("Data 1 Sidiq Berjaya Dimuatkan! 🎉")
+                    st.rerun()
+                else: st.error("Format data SePKM tidak ditemui atau fail kosong.")
+
         with up2:
             st.markdown("<div style='background:#f0fdf4; padding:15px; border-radius:12px; border:1px solid #bbf7d0;'><strong>🟢 Fail Data 5 Amanah</strong></div>", unsafe_allow_html=True)
             f_am5 = st.file_uploader("Pilih fail CSV Kelas 5 Amanah", type=['csv'], key="f_am5")
@@ -358,7 +382,7 @@ with tab_urus:
         st.markdown("#### ➕ Daftar / Edit Murid Secara Manual")
         with st.form("manual_form"):
             m_name = st.text_input("Nama Penuh Murid:").upper()
-            m_class = st.selectbox("Kelas Murid:", ["5 Sidiq", "5 Amanah", "5 Tabligh", "1 Amanah", "1 Fatonah"])
+            m_class = st.selectbox("Kelas Murid:", ["5 Sidiq", "5 Amanah", "5 Tabligh", "1 Amanah", "1 Fatonah", "1 Tabligh", "1 Sidiq"])
             c_r, c_i, c_a, c_s, c_e, c_k = st.columns(6)
             with c_r: r_s = st.number_input("Skor R", 0, 30, 0)
             with c_i: i_s = st.number_input("Skor I", 0, 30, 0)
