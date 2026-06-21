@@ -281,50 +281,6 @@ with tab_carian:
                     </div>
                 """, unsafe_allow_html=True)
 
-    st.write("---")
-    st.markdown("<h3 style='color: #8b5cf6;'><i class='fa-solid fa-gamepad'></i> Makmal Kuiz Mini RIASEC Interaktif</h3>", unsafe_allow_html=True)
-    st.write("Belum mengambil ujian penuh? Jawab 6 soalan menyeronokkan ini untuk mendapatkan anggaran Kod Kerjaya anda secara langsung!")
-    
-    with st.expander("✨ Sila Buka Untuk Memulakan Kuiz RIASEC!", expanded=False):
-        quiz_col1, quiz_col2 = st.columns(2)
-        
-        with quiz_col1:
-            q_r = st.slider("🛠️ **S1 (Realistik)**: Seberapa sukakah anda menggunakan alatan fizikal, membuat projek kraf, atau membaiki mesin?", 0, 10, 5)
-            q_i = st.slider("🧪 **S2 (Investigatif)**: Seberapa sukakah anda membuat penyelidikan sains, mengira formula matematik, atau menyelesaikan teka-teki misteri?", 0, 10, 5)
-            q_a = st.slider("🎨 **S3 (Artistik)**: Seberapa sukakah anda melukis, mencipta muzik, mereka seni grafik, atau menulis cerita fiksyen?", 0, 10, 5)
-            
-        with quiz_col2:
-            q_s = st.slider("🤝 **S4 (Sosial)**: Seberapa sukakah anda membantu orang lain, mengajar rakan sekumpulan, atau melakukan aktiviti sukarelawan?", 0, 10, 5)
-            q_e = st.slider("💼 **S5 (Enterprising)**: Seberapa sukakah anda memimpin kumpulan, menjual barang/produk, atau memberi ucapan di khalayak ramai?", 0, 10, 5)
-            q_k = st.slider("📂 **S6 (Konvensional)**: Seberapa sukakah anda menyusun jadual waktu, mengurus perakaunan wang saku, atau menyimpan fail dengan kemas?", 0, 10, 5)
-            
-        sub_quiz = st.button("🔥 Jana Sijil Minat Kerjaya Digital Anda!")
-        
-        if sub_quiz:
-            q_scores = {'R': q_r, 'I': q_i, 'A': q_a, 'S': q_s, 'E': q_e, 'K': q_k}
-            sorted_q = sorted(q_scores.items(), key=lambda x: (-x[1], x[0]))
-            final_code = "".join([item[0] for item in sorted_q[:3]])
-            
-            st.balloons()
-            
-            st.markdown(f"""
-                <div class="sijil-container" style="margin-top: 20px;">
-                    <h2 style="color: #fbbf24; margin: 0; font-family: serif; letter-spacing: 2px;">🏆 KEPUTUSAN PENILAIAN MINAT KERJAYA</h2>
-                    <p style="color: #cbd5e1; font-size: 1.1em; margin-top: 5px;">Sijil Eksplorasi Minat Digital RIASEC</p>
-                    <hr style="border-color: rgba(245, 158, 11, 0.3); margin: 20px auto; width: 60%;">
-                    <p style="color: white; font-size: 1.2em; margin-bottom: 20px;">Kombinasi Dominan Anda:</p>
-                    <div class="sijil-badge">{final_code}</div>
-                    <p style="color: #94a3b8; font-size: 0.9em; margin-top: 20px; font-style: italic;">"Langkah pertama dalam reka bentuk masa hadapan anda bermula di sini!"</p>
-                </div>
-            """, unsafe_allow_html=True)
-            
-            # Memberikan cadangan kerjaya langsung berdasarkan keputusan kuiz
-            st.write(" ")
-            c_cols = st.columns(3)
-            for idx, char in enumerate(final_code):
-                with c_cols[idx]:
-                    st.info(f"**Tret {idx+1}: {riasec_details[char]['name']} ({char})**\n\nCadangan: " + ", ".join(riasec_details[char]['careers']))
-
 # ==================== TAB 2: ANALISIS KELAS BERWARNA-WARNI ====================
 with tab_statistik:
     st.markdown("<h3 style='color: #1e3a8a;'><i class='fa-solid fa-chart-line'></i> Dashboard Analisis Kelas</h3>", unsafe_allow_html=True)
