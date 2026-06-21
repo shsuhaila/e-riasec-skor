@@ -155,7 +155,6 @@ itp_details = {
     }
 }
 
-# Badges untuk Kelas
 class_badges = {
     "5 Sidiq": {"bg": "#E0F2FE", "txt": "#0369A1", "border": "#7DD3FC", "emoji": "🔵"},
     "5 Amanah": {"bg": "#D1FAE5", "txt": "#065F46", "border": "#6EE7B7", "emoji": "🟢"},
@@ -210,21 +209,7 @@ def parse_itp_csv(file_path_or_buffer, class_name):
                     "id": f"itp_{class_name.lower().replace(' ', '_')}_{len(students_list)+1}",
                     "name": name,
                     "class": class_name,
-                    "Autonomi": scores.get('Autonomi', 0),
-                    "Kreatif": scores.get('Kreatif', 0),
-                    "Agresif": scores.get('Agresif', 0),
-                    "Ekstrovert": scores.get('Ekstrovert', 0),
-                    "Pencapaian": scores.get('Pencapaian', 0),
-                    "Kepelbagaian": scores.get('Kepelbagaian', 0),
-                    "Intelektual": scores.get('Intelektual', 0),
-                    "Kepimpinan": scores.get('Kepimpinan', 0),
-                    "Struktur": scores.get('Struktur', 0),
-                    "Resilien": scores.get('Resilien', 0),
-                    "Menolong": scores.get('Menolong', 0),
-                    "Analitikal": scores.get('Analitikal', 0),
-                    "Kritik Diri": scores.get('Kritik Diri', 0),
-                    "Wawasan": scores.get('Wawasan', 0),
-                    "Ketelusan": scores.get('Ketelusan', 0)
+                    **scores
                 })
             except (ValueError, IndexError):
                 continue
@@ -299,7 +284,6 @@ default_itp_students = [
 if 'students_db' not in st.session_state:
     st.session_state.students_db = pd.DataFrame(default_students)
     
-    # Auto-load untuk RIASEC
     csv_mappings = [
         ("5 Amanah", "senarai-murid-psikometrik-AMANAH-INVENTORI-MINAT-KERJAYA-TINGKATAN-5-2026.csv"),
         ("5 Tabligh", "senarai-murid-psikometrik-TABLIGH-INVENTORI-MINAT-KERJAYA-TINGKATAN-5-2026.csv"),
@@ -318,7 +302,6 @@ if 'students_db' not in st.session_state:
 if 'itp_db' not in st.session_state:
     st.session_state.itp_db = pd.DataFrame(default_itp_students)
     
-    # Auto-load untuk ITP (Tingkatan 2)
     itp_file = "senarai-murid-psikometrik-FATONAH-INVENTORI-TRET-PERSONALITI-TINGKATAN-2-2026.csv"
     if os.path.exists(itp_file):
         loaded_itp = parse_itp_csv(itp_file, "2 Fatonah")
@@ -332,10 +315,8 @@ def get_riasec_code(row):
 
 df_imk = st.session_state.students_db.copy()
 df_imk['Kod'] = df_imk.apply(get_riasec_code, axis=1)
-
 df_itp = st.session_state.itp_db.copy()
 
-# Navigation Sisi untuk Tukar Inventori
 with st.sidebar:
     st.markdown("<h2 style='text-align: center; color: #1e3a8a;'>📚 SELEKTOR</h2>", unsafe_allow_html=True)
     active_test = st.radio(
@@ -351,6 +332,12 @@ with st.sidebar:
             • <b>ITP (Ting 2)</b> memetakan potensi personaliti unik murid dalam 15 konstruk.
         </div>
     """, unsafe_allow_html=True)
+
+tab_carian, tab_statistik, tab_urus = st.tabs([
+    "🔍 Carian Individu", 
+    "📊 Dashboard Analisis Kelas", 
+    "🔒 Urus Database & CSV"
+])
 
 if active_test == "🎯 Minat Kerjaya (IMK - RIASEC)":
     
@@ -435,7 +422,6 @@ if active_test == "🎯 Minat Kerjaya (IMK - RIASEC)":
             freq = analysis_df['Dominan'].value_counts().reindex(['R', 'I', 'A', 'S', 'E', 'K'], fill_value=0)
             top_trait = freq.idxmax()
             
-            # Kad KPI
             kpi_col1, kpi_col2, kpi_col3 = st.columns(3)
             with kpi_col1:
                 st.markdown(f"<div style='background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white; padding: 20px; border-radius: 18px; text-align: center;'><h5>JUMLAH MURID</h5><h2>{total_students} Orang</h2></div>", unsafe_allow_html=True)
@@ -500,7 +486,6 @@ if active_test == "🎯 Minat Kerjaya (IMK - RIASEC)":
                         st.toast("5 Amanah Dimuatkan!")
                         st.rerun()
             st.write("---")
-            # Borang manual pendaftaran murid
             st.markdown("#### ➕ Daftar Murid Secara Manual (IMK)")
             with st.form("manual_form_imk"):
                 m_name = st.text_input("Nama Penuh Murid:").upper()
@@ -521,7 +506,6 @@ if active_test == "🎯 Minat Kerjaya (IMK - RIASEC)":
             st.write("---")
             st.dataframe(df_imk[['name', 'class', 'R', 'I', 'A', 'S', 'E', 'K', 'Kod']], use_container_width=True, hide_index=True)
 
-# ==================== STREAMING_CHUNK: MEMBINA MODUL INVENTORI TRET PERSONALITI (ITP) ====================
 else:
     
     with tab_carian:
@@ -564,7 +548,6 @@ else:
             col_bar1, col_bar2 = st.columns(2)
             for idx, key in enumerate(itp_details.keys()):
                 score_val = int(student_data_itp[key])
-                # Menentukan tahap
                 if score_val >= 70:
                     tahap = "Tinggi"
                     badge_col = "red" if key in ['Agresif', 'Kritik Diri'] else "green"
@@ -615,7 +598,6 @@ else:
             sorted_avg = sorted(avg_scores.items(), key=lambda x: -x[1])
             top_class_trait = sorted_avg[0][0]
             
-            # Kad KPI ITP
             kpi_col1, kpi_col2, kpi_col3 = st.columns(3)
             with kpi_col1:
                 st.markdown(f"<div style='background: linear-gradient(135deg, #1e1b4b 0%, #311042 100%); color: white; padding: 20px; border-radius: 18px; text-align: center;'><h5>JUMLAH MURID</h5><h2>{total_students_itp} Orang</h2></div>", unsafe_allow_html=True)
@@ -648,7 +630,7 @@ else:
             with st.form("login_form_itp"):
                 password_input = st.text_input("🔑 Masukkan Kata Laluan Pentadbir:", type="password")
                 if st.form_submit_button("Log Masuk"):
-                    if password_input == "cikgu123":
+                    if password_input == "ellan711":
                         st.session_state.logged_in = True
                         st.balloons()
                         st.rerun()
@@ -671,7 +653,6 @@ else:
                 else: st.error("Gagal membaca format CSV SePKM ITP.")
             
             st.write("---")
-            # Borang manual pendaftaran murid ITP
             st.markdown("#### ➕ Daftar Murid Secara Manual (ITP)")
             with st.form("manual_form_itp"):
                 m_name = st.text_input("Nama Penuh Murid:").upper()
